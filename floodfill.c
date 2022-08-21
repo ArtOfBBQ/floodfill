@@ -9,12 +9,10 @@
 #include "stdio.h"
 #endif
 
-#define FLOODFILL_IGNORE_ASSERTS
+// #define FLOODFILL_IGNORE_ASSERTS
 #ifndef FLOODFILL_IGNORE_ASSERTS
 #include "assert.h"
 #endif
-
-static uint8_t * explored_hashset = NULL;
 
 typedef struct NodeToExplore {
     int32_t x;
@@ -99,7 +97,9 @@ void floodfill(
     const uint64_t working_memory_size)
 {
     uint8_t * working_memory_at = (uint8_t *)working_memory;
+    #ifndef FLOODFILL_IGNORE_ASSERTS
     uint64_t working_memory_left = (uint64_t)working_memory_size;
+    #endif
     
     uint32_t explored_hashset_cap = (cantor_hash(height, width) / 8) + 1;
     #ifndef FLOODFILL_IGNORE_ASSERTS
@@ -107,7 +107,10 @@ void floodfill(
     #endif
     uint8_t * explored_hashset = working_memory_at;
     working_memory_at += explored_hashset_cap;
+    
+    #ifndef FLOODFILL_IGNORE_ASSERTS
     working_memory_left -= explored_hashset_cap;
+    #endif
     for (uint32_t i = 0; i < explored_hashset_cap; i++) {
         explored_hashset[i] = 0;
     }
@@ -121,7 +124,10 @@ void floodfill(
     #endif
     uint8_t * queued_for_exploring_hashset = working_memory_at;
     working_memory_at += queued_for_exploring_hashset_cap;
+
+    #ifndef FLOODFILL_IGNORE_ASSERTS
     working_memory_left -= queued_for_exploring_hashset_cap;
+    #endif
     for (uint32_t i = 0; i < queued_for_exploring_hashset_cap; i++) {
         queued_for_exploring_hashset[i] = 0;
     }
@@ -130,13 +136,19 @@ void floodfill(
     #ifndef FLOODFILL_IGNORE_ASSERTS
     assert(working_memory_left >= to_explore_cap);
     #endif
+    // align to 4 bytes
+    while (((uintptr_t)(const void *)working_memory_at & 0x3)) {
+        working_memory_at++;
+    }
     NodeToExplore * to_explore = (NodeToExplore *)working_memory_at;
     for (uint32_t i = 0; i < to_explore_cap; i++) {
         to_explore[i].x = 0;
         to_explore[i].y = 0;
     }
     working_memory_at   += to_explore_cap;
+    #ifndef FLOODFILL_IGNORE_ASSERTS
     working_memory_left -= to_explore_cap;
+    #endif
     
     to_explore[0].x = at_x;
     to_explore[0].y = at_y;
@@ -144,11 +156,6 @@ void floodfill(
     hashset_register(queued_for_exploring_hashset, at_x, at_y);
     
     uint8_t target_RGBA[4];
-    uint32_t to_explore_pixelstart =
-        xy_to_pixelstart(
-            to_explore[0].x,
-            to_explore[0].y,
-            height);
     for (uint32_t _ = 0; _ < 4; _++) {
         target_RGBA[_] =
             rgba[node_to_pixelstart(to_explore[0], width) + _];
@@ -226,7 +233,7 @@ void floodfill(
     }
     
     #ifndef FLOODFILL_SILENCE 
-    printf("bytes of memory used: %u\n", working_memory_size - working_memory_left);
+    printf("bytes of memory used: %llu\n", working_memory_size - working_memory_left);
     #endif
 }
 
