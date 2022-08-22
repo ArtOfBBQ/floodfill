@@ -4,12 +4,12 @@
 #define NULL 0
 #endif
 
-#define FLOODFILL_SILENCE
+// #define FLOODFILL_SILENCE
 #ifndef FLOODFILL_SILENCE
 #include "stdio.h"
 #endif
 
-#define FLOODFILL_IGNORE_ASSERTS
+// #define FLOODFILL_IGNORE_ASSERTS
 #ifndef FLOODFILL_IGNORE_ASSERTS
 #include "assert.h"
 #endif
@@ -113,6 +113,7 @@ void floodfill(
     working_memory_at += explored_hashset_cap;
     
     #ifndef FLOODFILL_IGNORE_ASSERTS
+    assert(working_memory_left > explored_hashset_cap);
     working_memory_left -= explored_hashset_cap;
     #endif
     for (uint32_t i = 0; i < explored_hashset_cap; i++) {
@@ -125,44 +126,56 @@ void floodfill(
             width) / 8) + 1;
     #ifndef FLOODFILL_IGNORE_ASSERTS
     assert(working_memory_size >= queued_for_exploring_hashset_cap);
+    working_memory_left -= queued_for_exploring_hashset_cap;
     #endif
     uint8_t * queued_for_exploring_hashset = working_memory_at;
     working_memory_at += queued_for_exploring_hashset_cap;
-
-    #ifndef FLOODFILL_IGNORE_ASSERTS
-    working_memory_left -= queued_for_exploring_hashset_cap;
-    #endif
     for (uint32_t i = 0; i < queued_for_exploring_hashset_cap; i++) {
         queued_for_exploring_hashset[i] = 0;
     }
     
     uint32_t to_explore_cap = width * height;
-    #ifndef FLOODFILL_IGNORE_ASSERTS
-    assert(working_memory_left >= to_explore_cap);
-    #endif
     // align to 4 bytes
     while (((uintptr_t)(const void *)working_memory_at & 0x3)) {
+        #ifndef FLOODFILL_IGNORE_ASSERTS
+        assert(working_memory_left > 0);
+        working_memory_left -= 1;
+        #endif
         working_memory_at++;
     }
+
+    #ifndef FLOODFILL_IGNORE_ASSERTS
+    assert(working_memory_left > to_explore_cap * sizeof(NodeToExplore));
+    working_memory_left -= to_explore_cap;
+    #endif
     NodeToExplore * to_explore = (NodeToExplore *)working_memory_at;
     for (uint32_t i = 0; i < to_explore_cap; i++) {
         to_explore[i].x = 0;
         to_explore[i].y = 0;
     }
-    working_memory_at   += to_explore_cap;
-    #ifndef FLOODFILL_IGNORE_ASSERTS
-    working_memory_left -= to_explore_cap;
-    #endif
+    working_memory_at += to_explore_cap;
     
     to_explore[0].x = at_x;
     to_explore[0].y = at_y;
     uint32_t to_explore_size = 1;
     
     uint8_t target_RGBA[4];
+    uint32_t initial_pixelstart = node_to_pixelstart(
+        to_explore[0],
+        width);
     for (uint32_t _ = 0; _ < 4; _++) {
-        target_RGBA[_] =
-            rgba[node_to_pixelstart(to_explore[0], width) + _];
+        target_RGBA[_] = rgba[initial_pixelstart + _];
     }
+    
+    #ifndef FLOODFILL_SILENCE
+    printf(
+        "target_RGBA (set from pixelstart %u): [%u,%u,%u,%u]\n",
+        initial_pixelstart,
+        target_RGBA[0],
+        target_RGBA[1],
+        target_RGBA[2],
+        target_RGBA[3]);
+    #endif
     
     hashset_register(queued_for_exploring_hashset, at_x, at_y);
     uint32_t pixelstart = xy_to_pixelstart(
@@ -181,10 +194,6 @@ void floodfill(
     while (to_explore_size > 0) {
         NodeToExplore exploring = to_explore[to_explore_size-1];
         to_explore_size -= 1;
-        
-        #ifndef FLOODFILL_SILENCE
-        printf("exploring: [%i,%i]\n", exploring.x, exploring.y);
-        #endif
         
         #ifndef FLOODFILL_IGNORE_ASSERTS
         assert(!hashset_find(explored_hashset, exploring.x, exploring.y));
@@ -255,6 +264,9 @@ void floodfill(
     
     #ifndef FLOODFILL_SILENCE 
     printf("bytes of memory used: %llu\n", working_memory_size - working_memory_left);
+    #endif
+    #ifndef FLOODFILL_IGNORE_ASSERTS
+    assert(working_memory_at - working_memory < working_memory_size);
     #endif
 }
 
