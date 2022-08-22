@@ -9,7 +9,7 @@
 #include "stdio.h"
 #endif
 
-// #define FLOODFILL_IGNORE_ASSERTS
+#define FLOODFILL_IGNORE_ASSERTS
 #ifndef FLOODFILL_IGNORE_ASSERTS
 #include "assert.h"
 #endif
@@ -50,24 +50,6 @@ static uint32_t cantor_hash(
 }
 
 /*
-Register a 'true' node at [x,y] in a boolean hashset
-*/
-static void hashset_register(
-    uint8_t * hashset,
-    int32_t x,
-    int32_t y)
-{
-    #ifndef FLOODFILL_IGNORE_ASSERTS
-    assert(x >= 0);
-    assert(y >= 0);
-    #endif
-
-    uint32_t location_bits = cantor_hash(x, y);
-    
-    hashset[location_bits / 8] = 1 << (location_bits % 8);
-}
-
-/*
 Check if there's a 'true' node at [x,y] in a boolean hashset
 */
 static uint32_t hashset_find(
@@ -83,6 +65,28 @@ static uint32_t hashset_find(
     uint32_t location_bits = cantor_hash(x,y);
     
     return (hashset[location_bits / 8] >> (location_bits % 8)) & 1;
+}
+
+/*
+Register a 'true' node at [x,y] in a boolean hashset
+*/
+static void hashset_register(
+    uint8_t * hashset,
+    int32_t x,
+    int32_t y)
+{
+    #ifndef FLOODFILL_IGNORE_ASSERTS
+    assert(x >= 0);
+    assert(y >= 0);
+    #endif
+
+    uint32_t location_bits = cantor_hash(x, y);
+    
+    hashset[location_bits / 8] |= 1 << (location_bits % 8);
+
+    #ifndef FLOODFILL_IGNORE_ASSERTS
+    assert(hashset_find(hashset, x, y));
+    #endif
 }
 
 void floodfill(
@@ -153,7 +157,6 @@ void floodfill(
     to_explore[0].x = at_x;
     to_explore[0].y = at_y;
     uint32_t to_explore_size = 1;
-    hashset_register(queued_for_exploring_hashset, at_x, at_y);
     
     uint8_t target_RGBA[4];
     for (uint32_t _ = 0; _ < 4; _++) {
@@ -161,15 +164,30 @@ void floodfill(
             rgba[node_to_pixelstart(to_explore[0], width) + _];
     }
     
+    hashset_register(queued_for_exploring_hashset, at_x, at_y);
+    uint32_t pixelstart = xy_to_pixelstart(
+        /* const uint32_t x: */
+            at_x,
+        /* const uint32_t y: */
+            at_y,
+        /* const uint32_t img_width: */
+            width);
+    rgba[pixelstart + 0] = replacement_RGBA[0];
+    rgba[pixelstart + 1] = replacement_RGBA[1];
+    rgba[pixelstart + 2] = replacement_RGBA[2];
+    rgba[pixelstart + 3] = replacement_RGBA[3];
+    
     // pop off a node to explore
     while (to_explore_size > 0) {
         NodeToExplore exploring = to_explore[to_explore_size-1];
         to_explore_size -= 1;
-       
-        #ifndef FLOODFILL_IGNORE_ASSERTS 
-        if (hashset_find(explored_hashset, exploring.x, exploring.y)) {
-            assert(0);
-        }
+        
+        #ifndef FLOODFILL_SILENCE
+        printf("exploring: [%i,%i]\n", exploring.x, exploring.y);
+        #endif
+        
+        #ifndef FLOODFILL_IGNORE_ASSERTS
+        assert(!hashset_find(explored_hashset, exploring.x, exploring.y));
         #endif
         hashset_register(explored_hashset, exploring.x, exploring.y);
         
@@ -188,7 +206,10 @@ void floodfill(
                     && try_x < width
                     && try_y >= 0
                     && try_y < height
-                    && !hashset_find(queued_for_exploring_hashset, try_x, try_y))
+                    && !hashset_find(
+                        queued_for_exploring_hashset,
+                        try_x,
+                        try_y))
                 {
                     uint32_t pixelstart = xy_to_pixelstart(
                         /* const uint32_t x: */
