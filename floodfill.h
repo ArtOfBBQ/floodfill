@@ -36,6 +36,7 @@ void floodfill(
     const uint32_t at_x,
     const uint32_t at_y,
     const uint8_t replacement_RGBA[4],
+    const uint32_t threshold,
     const uint8_t * working_memory,
     const uint64_t working_memory_size);
 

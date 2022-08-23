@@ -97,6 +97,7 @@ void floodfill(
     const uint32_t at_x,
     const uint32_t at_y,
     const uint8_t replacement_RGBA[4],
+    const uint32_t threshold,
     const uint8_t * working_memory,
     const uint64_t working_memory_size)
 {
@@ -228,11 +229,16 @@ void floodfill(
                         /* const uint32_t img_width: */
                             width);
                     
+                    int32_t diff_r = (rgba[pixelstart + 0] - target_RGBA[0]);
+                    int32_t diff_g = (rgba[pixelstart + 1] - target_RGBA[1]);
+                    int32_t diff_b = (rgba[pixelstart + 2] - target_RGBA[2]);
+                    int32_t diff_a = (rgba[pixelstart + 3] - target_RGBA[3]);
+                    
                     if (
-                        rgba[pixelstart + 0] == target_RGBA[0] &&
-                        rgba[pixelstart + 1] == target_RGBA[1] &&
-                        rgba[pixelstart + 2] == target_RGBA[2] &&
-                        rgba[pixelstart + 3] == target_RGBA[3])
+                        diff_r < threshold &&
+                        diff_g < threshold &&
+                        diff_b < threshold &&
+                        diff_a < threshold)
                     {
                         rgba[pixelstart + 0] = replacement_RGBA[0];
                         rgba[pixelstart + 1] = replacement_RGBA[1];
